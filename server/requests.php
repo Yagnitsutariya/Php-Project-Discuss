@@ -3,10 +3,22 @@ session_start();
 include("../common/db.php");
 
 if (isset($_POST['signup'])) {
-    $username = $_POST['username'];
-    $email = $_POST['email'];
-    $password = $_POST['password'];
-    $address = $_POST['address'];
+    $username = trim($_POST['username']);
+    $email = trim($_POST['email']);
+    $password = trim($_POST['password']);
+    $address = trim($_POST['address']);
+
+    if (empty($username) || empty($email) || empty($password) || empty($address)) {
+        die('All fields are required.');
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        die('Invalid email format.');
+    }
+
+    if (strlen($password) < 6) {
+        die('Password must be at least 6 characters.');
+    }
 
     $user = $conn->prepare("Insert into `user`
     (`id`,`username`,`email`,`password`,`address`)
@@ -24,33 +36,34 @@ if (isset($_POST['signup'])) {
         echo " New user not registred";
     }
 } else if (isset($_POST['login'])) {
+    $email = trim($_POST['email']);
+    $password = trim($_POST['password']);
 
-
-
-    $email = $_POST['email'];
-    $password = $_POST['password'];
-    $username = "";
-    $user_id = 0;
-
-
-    $query = "select * from user where email='$email' and password='$password'";
-    $result = $conn->query($query);
-
-    if ($result->num_rows == 1) {
-
-        foreach ($result as $row) {
-
-            $username = $row['username'];
-            $user_id = $row['id'];
-        }
-        $_SESSION["user"] = ["username" => $username, "email" => $email, "user_id" => $user_id];
-        header("location:/wpproject");
-
-    } else {
-        echo "New user not registered";
+    if (empty($email) || empty($password)) {
+        die('Email and password are required.');
     }
 
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        die('Invalid email format.');
+    }
 
+    $query = "SELECT * FROM user WHERE email = ? AND password = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("ss", $email, $password);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows == 1) {
+        $row = $result->fetch_assoc();
+        $_SESSION["user"] = [
+            "username" => $row['username'],
+            "email" => $row['email'],
+            "user_id" => $row['id']
+        ];
+        header("location:/wpproject");
+    } else {
+        echo "Invalid email or password.";
+    }
 } else if (isset($_GET['logout'])) {
     session_unset();
     header("location: /wpproject");
